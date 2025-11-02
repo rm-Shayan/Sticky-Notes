@@ -1,12 +1,14 @@
 import { v2 as cloudinary } from "cloudinary";
 import fs from "fs";
+import path from "path";
 import {
   CLOUDINARY_CLOUDNAME,
   CLOUDINARY_API_KEY,
   CLOUDINARY_API_SECRET,
   CLOUDINARY_PRESET,
 } from "../constant.js";
-import {ApiError} from "../Utilities/ApiError.js";
+import { ApiError } from "../Utilities/ApiError.js";
+import { safeDeleteFile } from "../Utilities/safeDelete.js";
 
 // ✅ Configure Cloudinary
 cloudinary.config({
@@ -15,53 +17,50 @@ cloudinary.config({
   api_secret: CLOUDINARY_API_SECRET,
 });
 
-// ✅ Upload Function with Strong Validation
+// ✅ Main Upload Function
 export const uploadToCloudinary = async (filePath, folder = "TodoProfile") => {
   try {
-    // 🔍 1. Check if filePath exists
-    if (!filePath) {
-      throw new ApiError(400, "No file path provided for upload");
+    if (!filePath || typeof filePath !== "string") {
+      throw new ApiError(400, "Invalid or missing file path");
     }
 
-    // 🔍 2. Check if file physically exists
-    if (!fs.existsSync(filePath)) {
+    // ✅ Handle absolute or relative paths safely
+    const normalizedPath = path.isAbsolute(filePath)
+      ? path.normalize(filePath)
+      : path.normalize(path.join(process.cwd(), filePath));
+
+    if (!fs.existsSync(normalizedPath)) {
       throw new ApiError(404, "File not found on server");
     }
 
-    // 🔍 3. Validate file size (example: max 10 MB)
-    const stats = fs.statSync(filePath);
+    // ✅ Check file size (10MB limit)
+    const stats = fs.statSync(normalizedPath);
     const maxSizeMB = 10;
     if (stats.size > maxSizeMB * 1024 * 1024) {
-      fs.unlinkSync(filePath); // delete large file
+      await safeDeleteFile(normalizedPath);
       throw new ApiError(400, `File size exceeds ${maxSizeMB}MB limit`);
     }
 
-    // 🔍 4. Optional: Validate file type
-   const allowedExtensions = [".jpg", ".jpeg", ".png", ".webp", ".svg"];
+    // ✅ Validate file type
+    const allowedExtensions = [".jpg", ".jpeg", ".png", ".webp", ".svg"];
+    const ext = path.extname(normalizedPath).toLowerCase();
+    if (!allowedExtensions.includes(ext)) {
+      await safeDeleteFile(normalizedPath);
+      throw new ApiError(400, "Invalid file type. Allowed: jpg, jpeg, png, webp, svg");
+    }
 
-// ✅ Inside uploadToCloudinary
-const fileExtension = filePath.slice(filePath.lastIndexOf(".")).toLowerCase();
-if (!allowedExtensions.includes(fileExtension)) {
-  fs.unlinkSync(filePath);
-  throw new ApiError(
-    400,
-    "Invalid file type. Only images (jpg, jpeg, png, webp, svg) are allowed."
-  );
-}
-
-    // ✅ 5. Upload to Cloudinary
-    const result = await cloudinary.uploader.upload(filePath, {
+    // ✅ Upload
+    const result = await cloudinary.uploader.upload(normalizedPath, {
       folder,
       upload_preset: CLOUDINARY_PRESET,
-      resource_type: "auto",
+      resource_type: "image",
     });
 
     console.log("✅ Cloudinary Upload Successful:", result.secure_url);
 
-    // ✅ 6. Delete local file after upload
-    fs.unlinkSync(filePath);
+    // ✅ Remove local file
+    await safeDeleteFile(normalizedPath);
 
-    // ✅ 7. Return only required data
     return {
       url: result.secure_url,
       public_id: result.public_id,
@@ -70,17 +69,7 @@ if (!allowedExtensions.includes(fileExtension)) {
     };
   } catch (error) {
     console.error("❌ Cloudinary Upload Failed:", error.message);
-
-    // 🧹 Cleanup if file exists
-    if (fs.existsSync(filePath)) {
-      try {
-        fs.unlinkSync(filePath);
-      } catch (unlinkError) {
-        console.warn("⚠️ Failed to delete local file after upload error:", unlinkError.message);
-      }
-    }
-
-    // 🔥 Custom error for your API
+    await safeDeleteFile(filePath);
     if (error instanceof ApiError) throw error;
     throw new ApiError(500, "Cloudinary upload failed");
   }

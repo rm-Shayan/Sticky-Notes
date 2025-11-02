@@ -23,7 +23,7 @@ const noteSchema = new mongoose.Schema(
     status: {
       type: String,
       enum: ["draft", "active", "archived", "trashed"],
-      default: "draft",
+      default: "active",
     },
     isPinned: {
       type: Boolean,

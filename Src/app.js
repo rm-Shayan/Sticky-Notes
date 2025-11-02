@@ -10,7 +10,10 @@ export const app = express();
 
 const allowOrigins = [
   "http://localhost:3200",
-  "http://localhost:3000" // Next.js server
+  "http://localhost:3000",
+  "http://localhost:5173",
+
+   // Next.js server
 ];
 
 // ✅ CORS Middleware

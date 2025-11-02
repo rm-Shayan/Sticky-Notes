@@ -3,7 +3,7 @@ import { ApiResponse } from "../Utilities/ApiResponse.js";
 import { ApiError } from "../Utilities/ApiError.js";
 import { asyncHandler} from "../Utilities/Asynchandler.js";
 import {generateTokens} from "../Utilities/tokenGenerate.js"
-import { uploadToCloudinary,deleteFromCloudinary } from "../Services/Cloudinary.service.js";
+import {uploadToCloudinary,deleteFromCloudinary } from "../Services/Cloudinary.service.js";
 
 /**
  * @desc    Register new user
@@ -39,7 +39,7 @@ export const userRegister = asyncHandler(async (req, res) => {
 
   // ✅ Return success response
   return res.status(201).json(
-    new ApiResponse(201, newUser, "User registered successfully")
+    new ApiResponse(201, [newUser], "User registered successfully")
   );
 });
 
@@ -97,16 +97,16 @@ export const userLogin = asyncHandler(async (req, res) => {
   });
 
   // ✅ Return success response
-  return res.status(200).json(
-    new ApiResponse(200, {
-      id: user._id,
-      name: user.name,
-      email: user.email,
-      avatar:user.avatar?.url,
-      accessToken,
-      refreshToken,
-    }, "Login successful")
-  );
+ return res.status(200).json(
+  new ApiResponse(200, [{
+    id: user._id,
+    name: user.name,
+    email: user.email,
+    avatar:user.avatar?.url,
+    accessToken,
+    refreshToken,
+  }], "Login successful")
+);
 });
 
 
@@ -244,7 +244,7 @@ export const userUpdate = asyncHandler(async (req, res) => {
   if (updatedUserObj.avatar) delete updatedUserObj.avatar.public_id;
 
   return res.status(200).json(
-    new ApiResponse(200, updatedUserObj, "User updated successfully")
+    new ApiResponse(200, [updatedUserObj], "User updated successfully")
   );
 });
 
